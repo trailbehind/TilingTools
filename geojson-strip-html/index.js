@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 /*
 Reads a GeoJSON file and outputs the same file with HTML encodes stripped
 */
