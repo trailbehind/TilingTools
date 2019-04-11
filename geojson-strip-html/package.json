@@ -1,0 +1,11 @@
+{
+  "name": "geojson-strip-html",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "he": "^1.2.0"
+  }
+}
