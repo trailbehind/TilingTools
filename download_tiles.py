@@ -27,6 +27,15 @@ def download_tiles(minzoom, maxzoom, bbox, url, path, tile_cover=False):
             os.makedirs(z_dir)
         ul = mercantile.tile(bbox[0], bbox[3], zoom)
         lr = mercantile.tile(bbox[2], bbox[1], zoom)
+        if ul.x < 0:
+            ul = mercantile.Tile(x=0, y=ul.y, z=ul.z)
+        if ul.y < 0:
+            ul = mercantile.Tile(x=ul.x, y=0, z=ul.z)
+        max_tile = pow(2, zoom) - 1
+        if lr.x > max_tile:
+            lr = mercantile.Tile(x=max_tile, y=lr.y, z=lr.z)
+        if lr.y > max_tile:
+            lr = mercantile.Tile(x=lr.x, y=max_tile, z=lr.z)
         logging.info("Downloading tiles for zoom %d x:%d-%d y:%d-%d " % (zoom, ul.x, lr.x, ul.y, lr.y))
         for x in range(ul.x, lr.x + 1):
             x_dir = os.path.join(z_dir, str(x))
