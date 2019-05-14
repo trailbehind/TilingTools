@@ -9,7 +9,7 @@ import requests
 from boto.s3.connection import S3Connection
 import sys
 
-def download_tiles(minzoom, maxzoom, bbox, url, path, tile_cover=False):
+def download_tiles(minzoom, maxzoom, bbox, url, path, tile_cover=False, skip_existing=False):
     if not os.path.exists(path):
         os.makedirs(path)
 
@@ -27,6 +27,15 @@ def download_tiles(minzoom, maxzoom, bbox, url, path, tile_cover=False):
             os.makedirs(z_dir)
         ul = mercantile.tile(bbox[0], bbox[3], zoom)
         lr = mercantile.tile(bbox[2], bbox[1], zoom)
+        if ul.x < 0:
+            ul = mercantile.Tile(x=0, y=ul.y, z=ul.z)
+        if ul.y < 0:
+            ul = mercantile.Tile(x=ul.x, y=0, z=ul.z)
+        max_tile = pow(2, zoom) - 1
+        if lr.x > max_tile:
+            lr = mercantile.Tile(x=max_tile, y=lr.y, z=lr.z)
+        if lr.y > max_tile:
+            lr = mercantile.Tile(x=lr.x, y=max_tile, z=lr.z)
         logging.info("Downloading tiles for zoom %d x:%d-%d y:%d-%d " % (zoom, ul.x, lr.x, ul.y, lr.y))
         for x in range(ul.x, lr.x + 1):
             x_dir = os.path.join(z_dir, str(x))
@@ -37,14 +46,18 @@ def download_tiles(minzoom, maxzoom, bbox, url, path, tile_cover=False):
                 tile_url_y = tile_url_x.replace("{y}", str(y))
                 file_path = os.path.join(x_dir, str(y) + ".png")
                 try:
-                    download_tile(tile_url_y, file_path)
+                    download_tile(tile_url_y, file_path, skip_existing=skip_existing)
                 except Exception as e:
                     logging.debug(e)
                     logging.error("Failed to download tile: " + tile_url_y)
 
 
 CHUNK_SIZE = 1024
-def download_tile(url, path):
+def download_tile(url, path, skip_existing=False):
+    if skip_existing and os.path.exists(path):
+        logging.debug("%s exists, skipping" % path)
+        return
+
     logging.debug("Downloading %s to %s" % (url, path))
     parsed_url = urlparse(url)
 
@@ -78,6 +91,8 @@ def _main():
                       help="Turn on debug logging")
     parser.add_option("-q", "--quiet", action="store_true", dest="quiet",
                       help="turn off all logging")
+    parser.add_option("-f", "--force", action="store_true", dest="force",
+                      help="Redownload existing tiles.")
     parser.add_option("-z", "--min-zoom", action="store", type="int", 
         dest="min_zoom", default=0)
     parser.add_option("-Z", "--max-zoom", action="store", type="int", 
@@ -107,7 +122,7 @@ def _main():
     url = args[0]
     path = args[1]
     download_tiles(options.min_zoom, options.max_zoom, bounds, url, path, 
-        tile_cover=options.tileCover)
+        tile_cover=options.tileCover, skip_existing=(not options.force))
 
 if __name__ == "__main__":
     _main()
