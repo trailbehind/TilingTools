@@ -76,7 +76,6 @@ def _main():
         for page in bucket_pages:
             total_files += len(page['Contents'])
             [pool.submit(replace_metadata, bucket_name, obj['Key'], values_to_set) for obj in page['Contents']]
-            break
         
         logging.debug(f"total files: {total_files}")
 
