@@ -40,7 +40,6 @@ def _main():
                       help="Turn on debug logging")
     parser.add_option("-q", "--quiet", action="store_true", dest="quiet",
                       help="turn off all logging")
-    parser.add_option("--dryrun", action='store_true', dest="dryrun")
     parser.add_option("-s", "--set", action="append", dest="set", default=[])
     (options, args) = parser.parse_args()
  
