@@ -5,10 +5,13 @@ from optparse import OptionParser
 import os
 from urllib.parse import urlparse
 from tqdm import tqdm
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, wait
 import boto3 
 from botocore.exceptions import BotoCoreError
+
 from time import sleep
+from datetime import datetime
+import pickle 
 
 ## AWS S3 has special metadata that's "system-defined"
 ## https://docs.aws.amazon.com/AmazonS3/latest/userguide/UsingMetadata.html
@@ -20,6 +23,12 @@ AWS_SYSTEM_METADATA_KEYS = [
     "ContentLanguage",
     "ContentType",
 ]
+
+def _exit_gracefully(current_page):
+    date = '{:%Y-%m-%d-%H-%M-%S}'.format(datetime.now())
+    if current_page is not None:
+        with open(f"s3_meta_resume_{date}.pkl", 'wb') as f:
+            pickle.dump(current_page, f)
 
 def _get_existing_system_metadata(existing_object):
     """
@@ -58,7 +67,6 @@ def replace_metadata(bucket, key, new_metadata):
 
         ## get updates to user and system defined metadata
         new_sys_meta, new_user_meta = _prep_metadata(new_metadata)
-        print(new_sys_meta, new_user_meta)
 
         existing_user_metadata.update(new_user_meta)
         existing_system_metadata.update(new_sys_meta)
@@ -108,29 +116,31 @@ def _main():
         bucket_name = url_parts.netloc
 
         s3_prefix = url_parts.path.strip("/")
-        bucket_paginator = s3.get_paginator('list_objects')
+        bucket_paginator = s3.get_paginator('list_objects_v2')
         bucket_pages = bucket_paginator.paginate(Bucket=bucket_name, Prefix=s3_prefix)
 
         if not bucket_pages:
             logging.error("Failed to list bucket")
             return
 
-        logging.info("Queueing tasks...")
-        pool = ThreadPoolExecutor()
-        total_files = 0
-        for page in bucket_pages:
-            total_files += len(page['Contents'])
-            [pool.submit(replace_metadata, bucket_name, obj['Key'], values_to_set) for obj in page['Contents']]
-        
-        logging.debug(f"total files: {total_files}")
+        last_page = None
+        try: 
+            logging.info("Processing files...")
+            pool = ThreadPoolExecutor()
+            progress = tqdm(unit='files')
+            total_files = 0
+            for page in bucket_pages:
+                last_page = page
+                total_files += len(page['Contents'])
+                _fs = [pool.submit(replace_metadata, bucket_name, obj['Key'], values_to_set) for obj in page['Contents']]
+                wait(_fs)
+                progress.update(len(page['Contents']))
 
-        logging.info("Processing...")
-        progress = tqdm(unit='files', total=total_files)
-        while pool._work_queue.qsize() > 0:
-            progress.n = total_files - pool._work_queue.qsize()
-            progress.refresh()
-            sleep(2) 
-        progress.close()
+        except KeyboardInterrupt as e:
+            print("CAUGHT")
+            _exit_gracefully(last_page)
+            raise e
+
 
 
 if __name__ == "__main__":
