@@ -94,6 +94,10 @@ def _main():
                       help="turn off all logging")
     parser.add_option("-s", "--set", action="append", dest="set", default=[],
                       help="<KEY>=<VALUE>. AWS S3 System defined metadata keys should contain hyphens.")
+    parser.add_option("-r", "--resume", action='store', dest='resume', 
+                       help="Resume from existing saved state file (e.g. s3_meta_resume_*.pkl)")
+    parser.add_option("-t", "--threads", action='store', dest="threads", type=int, default=None,
+                      help="Number of threads to use when setting metadata (default =  min(32, os.cpu_count() + 4))")
     (options, args) = parser.parse_args()
  
     logging.basicConfig(level=logging.DEBUG if options.debug else
@@ -117,7 +121,11 @@ def _main():
 
         s3_prefix = url_parts.path.strip("/")
         bucket_paginator = s3.get_paginator('list_objects_v2')
-        bucket_pages = bucket_paginator.paginate(Bucket=bucket_name, Prefix=s3_prefix)
+        
+        # resume from file if given
+        pag_opts = {"StartingToken" : pickle.load(open(options.resume, 'rb'))['NextContinuationToken']} if options.resume else {}
+
+        bucket_pages = bucket_paginator.paginate(Bucket=bucket_name, Prefix=s3_prefix, PaginationConfig=pag_opts)
 
         if not bucket_pages:
             logging.error("Failed to list bucket")
@@ -126,7 +134,7 @@ def _main():
         last_page = None
         try: 
             logging.info("Processing files...")
-            pool = ThreadPoolExecutor()
+            pool = ThreadPoolExecutor(max_workers=options.threads)
             progress = tqdm(unit='files')
             total_files = 0
             for page in bucket_pages:
@@ -137,7 +145,6 @@ def _main():
                 progress.update(len(page['Contents']))
 
         except KeyboardInterrupt as e:
-            print("CAUGHT")
             _exit_gracefully(last_page)
             raise e
 
