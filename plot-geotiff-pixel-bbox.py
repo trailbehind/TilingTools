@@ -6,6 +6,7 @@
 #######################################################
 import argparse
 import logging
+import os
 import rasterio
 from rasterio import windows
 import matplotlib.pyplot as plt
@@ -30,6 +31,7 @@ def run(args):
     window_slice = windows.Window.from_slices(*slice_raster)
 
     plt.imshow(raster_src.read(1))
+    plt.title(os.path.basename(src_file))
     ax = plt.gca()
     ax.add_patch(
         Rectangle(
@@ -37,7 +39,7 @@ def run(args):
             width=window_slice.width,
             height=window_slice.height,
             fill=True,
-            alpha=.2,
+            alpha=.5,
             color="red"
         )
     )
