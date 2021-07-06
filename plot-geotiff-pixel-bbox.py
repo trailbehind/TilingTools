@@ -63,7 +63,7 @@ def main():
     parser.add_argument('-upper_right', help='Upper Right corner pixel coordinates', dest='ur', default='100,1', required=False)
     parser.add_argument('-bbox_color', help='Color of bounding box overlay', dest='bbox_color', default='red', required=False)
     parser.add_argument('-o', help='Export plot as a PNG', dest='output', required=False)
-    parser.add_argument('-dpi', help='PNG export DPI', dest='png_dpi', type=int, required=False)
+    parser.add_argument('-dpi', help='PNG export DPI, default is 300 DPI', dest='png_dpi', type=int, required=False)
     parser.set_defaults(func=run)
     args = parser.parse_args()
     args.func(args)
